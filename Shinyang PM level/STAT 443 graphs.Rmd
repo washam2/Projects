@@ -1,0 +1,48 @@
+---
+title: "stat 443 mid project report"
+author: "JW Stat 443"
+date: "10/19/2017"
+output: html_document
+---
+
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(plotly)
+library(date)
+library(dplyr)
+library(lubridate)
+library(scales)
+library(readxl)
+shenyang = read_excel("~/Desktop/STAT 443/consulting/shenyang_delete.xlsx")
+shenyang$date = with(shenyang, ymd(sprintf('%04d%02d%02d', year, month, day)))
+shenyang$max = pmax(shenyang$PM_Taiyuanjie, shenyang$PM_US_Post, shenyang$PM_Xiaoheyan, na.rm=TRUE)
+```
+
+```{r}
+shenyang$date_hour = as.Date(paste(shenyang$date, shenyang$hour), format="%Y-%m-%d %H")
+
+ggplot(shenyang, aes(date_hour, max, color = season)) + geom_point() + scale_x_date(labels = date_format ("%Y-%m-%d %H:%M",tz = "UTC")) + xlab("") + ylab("Max PM")+ ggtitle("Max PM Values from 2013 to 2015") + theme(plot.title = element_text(hjust = 0.5), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
+```
+
+```{r}
+shenyang_delete_2013 = subset(shenyang, year == "2013")
+shenyang_delete_2013$date_hour = as.Date(paste(shenyang_delete_2013$date, shenyang_delete_2013$hour), format="%Y-%m-%d %H")
+
+ggplot(shenyang_delete_2013, aes(date_hour, max, color = season)) + geom_point() + scale_x_date(labels = date_format ("%Y-%m-%d %H:%M",tz = "UTC")) + xlab("") + ylab("Max PM")+ ggtitle("Max PM Values in 2013") + theme(plot.title = element_text(hjust = 0.5),panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
+```
+
+```{r}
+shenyang_delete_2014 = subset(shenyang, year == "2014")
+shenyang_delete_2014$date_hour = as.Date(paste(shenyang_delete_2014$date, shenyang_delete_2014$hour), format="%Y-%m-%d %H")
+
+ggplot(shenyang_delete_2014, aes(date_hour, max, color = season)) + geom_point() + scale_x_date(labels = date_format ("%Y-%m-%d %H:%M",tz = "UTC")) + xlab("") + ylab("Max PM")+ ggtitle("Max PM Values in 2014") + theme(plot.title = element_text(hjust = 0.5),panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
+```
+
+```{r}
+shenyang_delete_2015 = subset(shenyang, year == "2015")
+shenyang_delete_2015$date_hour = as.Date(paste(shenyang_delete_2015$date, shenyang_delete_2015$hour), format="%Y-%m-%d %H")
+
+ggplot(shenyang_delete_2015, aes(date_hour, max, color = season)) + geom_point() + scale_x_date(labels = date_format ("%Y-%m-%d %H:%M",tz = "UTC")) + xlab("") + ylab("Max PM")+ ggtitle("Max PM Values in 2015") + theme(plot.title = element_text(hjust = 0.5), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
+```
+
