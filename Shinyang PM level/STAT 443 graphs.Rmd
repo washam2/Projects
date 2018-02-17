@@ -14,7 +14,7 @@ library(dplyr)
 library(lubridate)
 library(scales)
 library(readxl)
-shenyang = read_excel("~/Desktop/STAT 443/consulting/shenyang_delete.xlsx")
+shenyang = read_excel("shenyang_delete.xlsx")
 shenyang$date = with(shenyang, ymd(sprintf('%04d%02d%02d', year, month, day)))
 shenyang$max = pmax(shenyang$PM_Taiyuanjie, shenyang$PM_US_Post, shenyang$PM_Xiaoheyan, na.rm=TRUE)
 ```
