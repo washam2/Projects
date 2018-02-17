@@ -14,7 +14,7 @@ library(zipcode)
 library(maps)
 library(ggmap)
 
-Speed_dating = read.csv("~/Desktop/SpeedDating.csv", na.strings = c("",".","NA"), stringsAsFactors =  FALSE)
+Speed_dating = read.csv("SpeedDating.csv", na.strings = c("",".","NA"), stringsAsFactors =  FALSE)
 Speed_dating[Speed_dating$gender == 0,]$gender = "W"
 Speed_dating[Speed_dating$gender == 1,]$gender = "M"
 
