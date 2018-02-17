@@ -19,7 +19,7 @@ library(plotly)
 ```
 
 ```{r}
-Speed_dating = read.csv("~/Desktop/SpeedDating.csv", na.strings = c("",".","NA"))
+Speed_dating = read.csv("SpeedDating.csv", na.strings = c("",".","NA"))
 variables = c("iid","gender", "age","income", "field","attr1_1", "sinc1_1", "intel1_1", "fun1_1", "amb1_1", "shar1_1")
 Speed_dating_edit = Speed_dating[variables]
 Speed_dating_combined = Speed_dating_edit[!duplicated(Speed_dating_edit$iid), ]
@@ -82,7 +82,7 @@ ggplot(mean_female_long, aes(fill=Group, y=value, x=variable)) +
 ```
 
 ```{r}
-Speed_dating = read.csv("~/Desktop/washam2/Spooky Stats/SpeedDating.csv", na.strings = c("",".","NA"), stringsAsFactors =  FALSE)
+Speed_dating = read.csv("SpeedDating.csv", na.strings = c("",".","NA"), stringsAsFactors =  FALSE)
 Speed_dating[Speed_dating$gender == 0,]$gender = "W"
 Speed_dating[Speed_dating$gender == 1,]$gender = "M"
 ```
