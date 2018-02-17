@@ -1,0 +1,415 @@
+---
+title: "STAT 385 Project"
+author: "JW Stat 443"
+date: "11/7/2017"
+output: html_document
+---
+
+
+```{r}
+library(dplyr)        # Data manipulation
+library(reshape2)     # Data reshaping for ggplot
+library(ggplot2)      # Data visualization    
+library(readxl)        # CSV file I/O, e.g. the read_csv function
+library(zipcode)
+library(maps)
+library(ggmap)
+library(shiny)
+library(plotly)
+```
+
+```{r}
+Speed_dating = read.csv("SpeedDating.csv", na.strings = c("",".","NA"))
+variables = c("iid","gender", "age","income", "field","attr1_1", "sinc1_1", "intel1_1", "fun1_1", "amb1_1", "shar1_1")
+Speed_dating_edit = Speed_dating[variables]
+Speed_dating_combined = Speed_dating_edit[!duplicated(Speed_dating_edit$iid), ]
+Speed_dating_clean = na.omit(Speed_dating_combined)
+```
+
+# Find the average of the 5 variables
+```{r}
+Speed_dating_average = data.frame(name = c("Attraction", "Sincerity", "Intelligence ", "Fun","Ambition","Share"), mean= c( mean(Speed_dating_clean$attr1_1), mean(Speed_dating_clean$sinc1_1), mean(Speed_dating_clean$intel1_1), mean(Speed_dating_clean$fun1_1), mean(Speed_dating_clean$amb1_1), mean(Speed_dating_clean$shar1_1)))
+
+ggplot(Speed_dating_average, aes(x= name, y = mean)) + geom_bar(stat = "identity") + xlab("") + ylab("Mean Score")
+```
+
+#Find the percentage of matched and divide into two groups (high and low)
+```{r}
+library(data.table)
+library(dplyr)
+Speed_dating_count = tally(group_by(Speed_dating, iid))
+Speed_dating_sum = aggregate(match~ iid, data = Speed_dating, sum)
+Speed_dating_table = merge(Speed_dating_sum, Speed_dating_count, by = "iid")
+Speed_dating_table$percent = (Speed_dating_table$match / Speed_dating_table$n) * 100
+Speed_dating_table$group = ifelse(Speed_dating_table$percent < 50, "Low Match","High Match")
+Speed_dating_final = merge(Speed_dating_table, Speed_dating_clean, by = "iid")
+Speed_dating_final
+```
+
+#Separate the clean data in to males and females
+```{r}
+Speed_dating_female= subset(Speed_dating_final, gender == "0")
+Speed_dating_male= subset(Speed_dating_final, gender == "1")
+```
+
+#Create a pie chart of percentage of match in males
+```{r}
+ggplot(Speed_dating_male, aes(x=group))+ geom_bar()
+```
+
+#Create a pie chart of percentage of match in females
+```{r}
+female_percent = plot_ly(Speed_dating_female, labels = ~group, values = ~percent, type = "pie") %>% layout(title = "Female", showlegend = TRUE)
+female_percent
+```
+
+# Plot the mean score of 5 attributes by groups in males
+```{r}
+mean_male = setNames(aggregate(Speed_dating_male[,c( "attr1_1", "sinc1_1", "intel1_1", "fun1_1", "amb1_1", "shar1_1")],by=list(Speed_dating_male$group),mean), c("Group","Attraction", "Sincerity", "Intelligence ", "Fun","Ambition","Share")) 
+mean_male_long = melt(mean_male,id.vars="Group")
+
+ggplot(mean_male_long, aes(fill=Group, y=value, x=variable)) + 
+    geom_bar(position="dodge", stat="identity") + ylab("Score") + xlab("") + ggtitle("Mean Scores of Different Variables in Male") +theme(plot.title = element_text(hjust = 0.5))
+```
+
+# Plot the mean score of 5 attributes by groups in females
+```{r}
+mean_female = setNames(aggregate(Speed_dating_female[,c( "attr1_1", "sinc1_1", "intel1_1", "fun1_1", "amb1_1", "shar1_1")],by=list(Speed_dating_female$group),mean), c("Group","Attraction", "Sincerity", "Intelligence ", "Fun","Ambition","Share")) 
+mean_female_long = melt(mean_female,id.vars="Group")
+
+ggplot(mean_female_long, aes(fill=Group, y=value, x=variable)) + 
+    geom_bar(position="dodge", stat="identity") + ylab("Score") + xlab("")+ggtitle("Mean Scores of Different Variables in Male") +theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+Speed_dating = read.csv("SpeedDating.csv", na.strings = c("",".","NA"), stringsAsFactors =  FALSE)
+Speed_dating[Speed_dating$gender == 0,]$gender = "W"
+Speed_dating[Speed_dating$gender == 1,]$gender = "M"
+```
+
+
+```{r}
+Speed_dating %>% 
+  group_by(iid) %>% 
+  summarise(gender = head(gender,1)) %>% 
+  group_by(gender) %>% 
+  summarise(count = n())
+```
+
+```{r}
+gender_waves = subset(Speed_dating, !duplicated(Speed_dating[, 1])) %>%
+  group_by(wave, gender) %>%
+  summarise(count = n()) %>%
+  melt(id.vars = c("gender", "wave"))
+ggplot(gender_waves, aes(x = wave, y = value, fill = factor(gender))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_discrete(name = "Gender") +
+  xlab("Wave") + ylab("Population") + ggtitle("Gender repartition in waves") 
+```
+
+```{r}
+age_waves = subset(Speed_dating, !duplicated(Speed_dating[, 1])) %>% 
+  filter(!is.na(age)) %>%
+  group_by(wave, gender) %>%
+  summarise(count = mean(age)) %>%
+  melt(id.vars = c("gender", "wave"))
+ggplot(age_waves, aes(x = wave, y = value, fill = factor(gender))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_discrete(name = "Gender") +
+  xlab("Wave") + ylab("Population") + ggtitle("Age repartition in waves") 
+```
+
+```{r}
+# Group df by age and age_0
+age_analysis = Speed_dating %>%
+  group_by(age, age_o) %>%
+  summarise(
+    people = n(), 
+    matches = sum(match)) %>%
+  filter(!is.na(age) & !is.na(age_o))
+
+# Filter with age difference > 5 years, and with more than 5 matches
+age_diff = age_analysis %>%
+  filter(age - age_o >= 0) %>%
+  mutate(years = age - age_o) %>%
+  group_by(years) %>%
+  summarise(
+    matches = sum(matches)) %>%
+  arrange(years)
+
+# Graph result
+ggplot(age_diff[age_diff$years < 20,], aes(x = years, y = matches)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  xlab("Number of years of difference between people's age") + 
+  ylab("Number of matches") + ggtitle("Does age really matter?")
+```
+
+```{r}
+fields_cd = c(
+  "Law",
+  "Math",
+  "Social Science, Psychologist" ,
+  "Medical Science, Pharmaceuticals, and Bio Tech",
+  "Engineering",
+  "English/Creative Writing/ Journalism",
+  "History/Religion/Philosophy",
+  "Business/Econ/Finance",
+  "Education, Academia",
+  "Biological Sciences/Chemistry/Physics",
+  "Social Work" ,
+  "Undergrad/undecided" ,
+  "Political Science/International Affairs" ,
+  "Film",
+  "Fine Arts/Arts Administration",
+  "Languages",
+  "Architecture",
+  "Other"
+)
+
+# Create career codes
+career_cd = c(
+  "Lawyer",
+  "Academic/Research", 
+  "Psychologist", 
+  "Doctor/Medicine",
+  "Engineer", 
+  "Creative Arts/Entertainment",
+  "BankingBusiness/CEO/Admin",
+  "Real Estate",
+  "International/Humanitarian Affairs",
+  "Undecided" ,
+  "Social Work",
+  "Speech Pathology",
+  "Politics",
+  "Pro sports/Athletics",
+  "Other",
+  "Journalism",
+  "Architecture"
+)
+
+# Find number of men/women on each study field
+fields = Speed_dating[!is.na(Speed_dating$field_cd),] %>%
+  group_by(gender, field_cd) %>%
+  summarise(
+    count = n()
+  )
+
+# Find number of men/women on each career
+careers = Speed_dating[!is.na(Speed_dating$career_c),] %>%
+  group_by(gender, career_c) %>%
+  summarise(
+    count = n()
+  )
+
+# Plot study fields repartition
+ggplot(fields, aes(x = field_cd, y = count, fill = factor(gender))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_discrete(name = "Gender") +
+  xlab("Field") + ylab("Count") + ggtitle("Study fields repartition") +
+  scale_x_continuous(labels = fields_cd, breaks = 1:18) +
+  coord_flip()
+
+ggplot(careers, aes(x = career_c, y = count, fill = factor(gender))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_discrete(name = "Gender") +
+  xlab("Career") + ylab("Count") + ggtitle("Careers repartition") +
+  scale_x_continuous(labels = career_cd, breaks = 1:17) +
+  coord_flip()
+```
+
+
+```{r}
+race_c = c(
+  "European/Caucasian-American",
+  "Black/African American",
+  "Asian/Pacific Islander/Asian-American",
+  "Latino/Hispanic American",
+  "Native American",
+  "Other"
+)
+
+# Find number of men/women for each race
+races = Speed_dating[!is.na(Speed_dating$race),] %>%
+  group_by(gender, race) %>%
+  summarise(
+    my = n()
+  )
+
+# Plot race repartition
+ggplot(races, aes(x = race, y = my, fill = factor(gender))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_discrete(name = "Gender") +
+  xlab("Race") + ylab("Count") + ggtitle("Race repartition") +
+  scale_x_continuous(labels = race_c, breaks = 1:6) +
+  coord_flip()
+```
+
+```{r}
+match_by_gender = Speed_dating %>%
+  group_by(gender) %>%
+  summarise(
+    matches = sum(match == 1),
+    fails = sum(match == 0)) %>% 
+  melt(id.vars = "gender")
+
+# Plot matches for both men and women
+ggplot(match_by_gender, aes(x = variable, y = value, fill = factor(gender))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_discrete(name = "Gender") + ggtitle("Matches by gender") +
+  xlab("Result") + ylab("Count")
+```
+
+```{r}
+match_by_waves = Speed_dating[Speed_dating$match == 1,] %>%
+  group_by(wave) %>%
+  summarise(
+    matches = sum(match == 1)
+  )
+
+# Plot matches for waves: what was the best wave to be?
+ggplot(match_by_waves, aes(x = wave, y = matches)) +
+  geom_bar(stat = "identity", position = "dodge") + ggtitle("Matches by waves") +
+  xlab("Wave number") + ylab("Matches")
+```
+
+```{r}
+male = Speed_dating[Speed_dating$gender == "M",]
+first_col = head(grep("sports", colnames(Speed_dating)),1)
+last_col = head(grep("yoga", colnames(Speed_dating)),1)
+match_col = head(grep("match", colnames(Speed_dating)),1)
+male = male[complete.cases(male[first_col:last_col]),]
+
+combined_male = male %>% group_by(iid) %>% summarise(match_sum = sum(match))
+
+number_male = combined_male %>% group_by(match_sum) %>% summarise(count = n())
+
+ggplot(number_male, aes(x = match_sum, y = count))+ geom_bar(stat = "identity", position = "dodge", colour = "black") + ggtitle("Number of men per number of matches") + xlab("Number of matches")
+```
+
+```{r}
+female = Speed_dating[Speed_dating$gender == "W",]
+first_col = head(grep("sports", colnames(Speed_dating)),1)
+last_col = head(grep("yoga", colnames(Speed_dating)),1)
+match_col = head(grep("match", colnames(Speed_dating)),1)
+female = female[complete.cases(female[first_col:last_col]),]
+
+combined_female = female %>% group_by(iid) %>% summarise(match_sum = sum(match))
+
+number_female = combined_female %>% group_by(match_sum) %>% summarise(count = n())
+
+ggplot(number_female, aes(x = match_sum, y = count))+ geom_bar(stat = "identity", position = "dodge", colour = "black") + ggtitle("Number of women per number of matches") + xlab("Number of matches")
+```
+
+```{r}
+# important features for men
+men_matches =  male[Speed_dating$match == 1,]
+men_feature = men_matches %>%
+  group_by(gender) %>%
+  summarise(
+    sports = sum(sports, na.rm=T),
+    tvsports = sum(tvsports, na.rm=T),
+    exercise = sum(exercise, na.rm=T),
+    dining = sum(dining, na.rm=T),
+    museums = sum(museums, na.rm=T),
+    art = sum(art, na.rm=T),
+    hiking = sum(hiking, na.rm=T),
+    gaming = sum(gaming, na.rm=T),
+    clubbing = sum(clubbing, na.rm=T),
+    reading = sum(reading, na.rm=T),
+    tv = sum(tv, na.rm=T),
+    music = sum(music, na.rm=T),
+    theater = sum(theater, na.rm=T),
+    movies = sum(movies, na.rm=T),
+    concerts = sum(concerts, na.rm=T),
+    shopping = sum(shopping, na.rm=T),
+    yoga = sum(yoga, na.rm=T)
+  ) %>%
+  melt(id_vars = "gender")
+ggplot(men_feature[,c(2,3)], aes(x = reorder(variable, -value), y = value)) +
+  geom_bar(stat = "identity", position = "dodge", colour="black") +
+  xlab("Feature") + ylab("Count") + ggtitle("Importance of a feature for men") +
+  coord_flip()
+```
+
+```{r}
+women_matches =  female[Speed_dating$match == 1,]
+women_feature = women_matches %>%
+  group_by(gender) %>%
+  summarise(
+    sports = sum(sports, na.rm=T),
+    tvsports = sum(tvsports, na.rm=T),
+    exercise = sum(exercise, na.rm=T),
+    dining = sum(dining, na.rm=T),
+    museums = sum(museums, na.rm=T),
+    art = sum(art, na.rm=T),
+    hiking = sum(hiking, na.rm=T),
+    gaming = sum(gaming, na.rm=T),
+    clubbing = sum(clubbing, na.rm=T),
+    reading = sum(reading, na.rm=T),
+    tv = sum(tv, na.rm=T),
+    music = sum(music, na.rm=T),
+    theater = sum(theater, na.rm=T),
+    movies = sum(movies, na.rm=T),
+    concerts = sum(concerts, na.rm=T),
+    shopping = sum(shopping, na.rm=T),
+    yoga = sum(yoga, na.rm=T)
+  ) %>%
+  melt(id_vars = "gender")
+ggplot(women_feature[,c(2,3)], aes(x = reorder(variable, -value), y = value)) +
+  geom_bar(stat = "identity", position = "dodge", colour="black") +
+  xlab("Feature") + ylab("Count") + ggtitle("Importance of a feature for Women") +
+  coord_flip()
+```
+
+
+```{r}
+Speed_dating_combined = Speed_dating[!duplicated(Speed_dating$iid), ]
+Speed_dating_combined$zipcode = as.numeric(gsub(",","",Speed_dating_combined$zipcode))
+Speed_dating_zip = clean.zipcodes(Speed_dating_combined$zipcode)
+data(zipcode)
+us = map_data('state')
+plot = subset(zipcode, subset = (zip %in% Speed_dating_zip))
+
+ggplot(plot, aes(longitude,latitude))+geom_polygon(data=us,aes(x=long,y=lat,group=group),alpha=.35) + geom_point(size = 1.3, colour="#0072B2", alpha = .25) + xlim(-125,-65)+ylim(20,50) + theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(), axis.line = element_blank(), axis.text = element_blank(), axis.title = element_blank(),axis.ticks = element_blank(),plot.title = element_text(hjust = 0.5)) + ggtitle("Location of Participants")
+```
+
+```{r}
+invalid_zipcode = rbind(Speed_dating_combined[(is.na(Speed_dating_combined$zipcode)),], Speed_dating_combined[grep("^[0-9]{1,3}$",Speed_dating_combined$zipcode),], Speed_dating_combined[grep("^[0-9]{6,7}$",Speed_dating_combined$zipcode),])
+
+# number of people who did not provide zipcode or from different country
+count(invalid_zipcode)
+```
+
+```{r}
+citation(package="readxl")
+citation(package="ggplot2")
+citation(package="data.table")
+citation(package="dplyr")
+citation(package="maps")
+citation(package="ggmap")
+citation(package="zipcode")
+citation(package="reshape2")
+citation(package="shiny")
+"Leverger, speed-dating-experiment-r (2016), GitHub repository,https://colinleverger.github.io/speed-dating-experiment-r/"
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
